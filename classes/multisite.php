@@ -58,7 +58,7 @@ class ACUI_Multisite{
 	function email_apply_wildcards( $string, $args ){
 		foreach( $this->sites as $subsite ) {
 			$subsite_id = get_object_vars( $subsite )["blog_id"];
-			$passwordreseturl_subsite = get_site_url( $subsite_id, 'wp-login.php?action=rp&key=' . $args['key'] . '&login=' . rawurlencode( $args['user_login'] ), 'login' );
+			$passwordreseturl_subsite = get_site_url( $subsite_id, 'login?action=rp&key=' . $args['key'] . '&login=' . rawurlencode( $args['user_login'] ), 'login' );
 
 			$string = str_replace( "**passwordreseturl_" . $subsite_id . "**", $passwordreseturl_subsite, $string );
 		}

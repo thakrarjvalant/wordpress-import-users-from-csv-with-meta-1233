@@ -50,6 +50,9 @@ class ACUI_Homepage{
 				<div id='message-password' class='error acui-message'><?php _e( 'Please, read carefully how <strong>passwords are managed</strong> and also take note about capitalization, this plugin is <strong>case sensitive</strong>.', 'import-users-from-csv-with-meta' ); ?></div>
 
 				<h2><?php _e( 'Import users and customers from CSV','import-users-from-csv-with-meta' ); ?></h2>
+				<div style="padding: 20px; font-size: 20px; font-weight: 500; background: red; color: white; margin-bottom: 20px;">
+					PLEASE ENSURE THAT THE PASSWORD FIELD ON IMPORTS DO NOT INCLUDE ' " OR *
+				</div>
 			</div>
 		</div>
 

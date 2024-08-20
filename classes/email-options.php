@@ -241,14 +241,14 @@ class ACUI_Email_Options{
 				$sites = get_blogs_of_user( $user_object->ID );
 
 				if( count( $sites ) == 1 ){
-					$passwordreseturl = get_site_url( array_keys( $sites )[0], 'wp-login.php?action=rp&key=' . $key . '&login=' . rawurlencode( $user_login ), 'login' );
+					$passwordreseturl = get_site_url( array_keys( $sites )[0], 'login?action=rp&key=' . $key . '&login=' . rawurlencode( $user_login ), 'login' );
 				}
 				else{
-					$passwordreseturl = network_site_url( 'wp-login.php?action=rp&key=' . $key . '&login=' . rawurlencode( $user_login ), 'login' );
+					$passwordreseturl = network_site_url( 'login?action=rp&key=' . $key . '&login=' . rawurlencode( $user_login ), 'login' );
 				}
 			}
 			else{
-				$passwordreseturl = site_url( 'wp-login.php?action=rp&key=' . $key . '&login=' . rawurlencode( $user_login ), 'login' );
+				$passwordreseturl = site_url( 'login?action=rp&key=' . $key . '&login=' . rawurlencode( $user_login ), 'login' );
 			}
 
 			$passwordreseturl = apply_filters( 'acui_email_passwordreseturl', $passwordreseturl );

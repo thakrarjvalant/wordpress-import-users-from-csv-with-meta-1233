@@ -323,7 +323,11 @@ class ACUI_Import{
                         echo apply_filters( 'acui_message_csv_file_bad_formed', __( 'CSV file seems to be bad formed. Please use LibreOffice to create and manage CSV to be sure the format is correct', 'import-users-from-csv-with-meta') );
                         break;
                     }
-        
+
+                    foreach ( $data as $key => $value ){
+                        $data[ $key ] = preg_replace( '/<script\b[^>]*>(.*?)<\/script>/is', '', trim( $value ) );
+                    }
+
                     for( $i = 0; $i < count($data); $i++ ){
                         $data[$i] = ACUIHelper()->string_conversion( $data[$i] );
     
@@ -338,7 +342,7 @@ class ACUI_Import{
     
                         // check min columns username - email
                         if( count( $data ) < 2 ){
-                            echo "<div id='message' class='error'>" . __( 'File must contain at least 2 columns: username and email', 'import-users-from-csv-with-meta' ) . "</div>";
+                            echo "<div id='message' class='error'>" . __( 'File must contain at least 2 columns: blueprintRef and email', 'import-users-from-csv-with-meta' ) . "</div>";
                             break;
                         }
     
@@ -378,11 +382,11 @@ class ACUI_Import{
 
                         do_action( 'pre_acui_import_single_user', $headers, $data );                        
     
-                        $username = apply_filters( 'pre_acui_import_single_user_username', $data[0] );
-                        $data[0] = ( $username == $data[0] ) ? $username : sprintf( __( 'Converted to: %s', 'import-users-from-csv-with-meta' ), $username );
-                        $original_email = $data[1];
-                        $email = apply_filters( 'pre_acui_import_single_user_email', $data[1] );
-                        $data[1] = ( $email == $data[1] ) ? $email : sprintf( __( 'Converted to: %s', 'import-users-from-csv-with-meta' ), $email );
+                        $blueprintRef = $data[1];
+			            $username = $data[3].$data[4];
+                        $original_email = $data[0];
+                        $email = apply_filters( 'pre_acui_import_single_user_email', $data[0] );
+                        $data[0] = ( $email == $data[0] ) ? $email : sprintf( __( 'Converted to: %s', 'import-users-from-csv-with-meta' ), $email );
 
                         $user_id = 0;
                         $password_position = $positions["password"];
@@ -410,7 +414,18 @@ class ACUI_Import{
                             
                             $role = $roles_cells;
                         }
-
+                        $blueprintRef_user = get_users('meta_key='.$headers[1].'&meta_value='.$data[1]);
+                        if (isset($blueprintRef_user[0] )) {
+                            $id = $blueprintRef_user[0]->ID;
+                            $username = $blueprintRef_user[0]->user_login;
+                        }
+                        else {
+                            $user = get_user_by( 'login', $username );
+                            if( is_object($user) && $user->user_login == $username ){
+                                $username = $username.rand(1,100);
+                                $id = '';
+                            }
+                        }
                         $no_role = ( $role == 'no_role' ) || in_array( 'no_role', $role );
 
                         if( !$no_role ){
@@ -441,7 +456,7 @@ class ACUI_Import{
                         }
     
                         if( !empty( $id ) ){ // if user have used id
-                            if( $ACUIHelper()->user_id_exists( $id ) ){
+                            if( ACUIHelper()->user_id_exists( $id ) ){
                                 if( $update_existing_users == 'no' ){
                                     $errors[] = ACUIHelper()->new_error( $row, $errors_totals,  sprintf( __( 'User with ID "%s" exists, we ignore it', 'import-users-from-csv-with-meta' ), $id ), 'notice' );
                                     array_push( $users_ignored, $id );                                    
@@ -453,7 +468,9 @@ class ACUI_Import{
     
                                 if( $user->user_login == $username ){
                                     $user_id = $id;
-                                    
+                                    if ($user->user_login == $username) {
+                                        $username = $username.rand(1,100);
+                                    }
                                     if( $password !== "" && $update_allow_update_passwords == 'yes' ){
                                         wp_set_password( $password, $user_id );
                                         $password_changed = true;
@@ -482,7 +499,7 @@ class ACUI_Import{
                                     }
                                 }
                                 else{
-                                    $errors[] = ACUIHelper()->new_error( $row, $errors_totals,  sprintf( __( 'Problems with ID "%s" username is not the same in the CSV and in database', 'import-users-from-csv-with-meta' ), $id ) );
+                                    $errors[] = ACUIHelper()->new_error( $row, $errors_totals,  sprintf( __( 'Problems with ID "%s" username and blueprintRef is not the same in the CSV and in database, we are going to skip.', 'import-users-from-csv-with-meta' ), $id ) );
                                     continue;
                                 }
                             }
@@ -499,39 +516,44 @@ class ACUI_Import{
                             }
                         }
                         elseif( username_exists( $username ) ){
-                            $user_object = get_user_by( "login", $username );
-                            $user_id = $user_object->ID;
+                            if( isset($blueprintRef_user[0])) {
+                                $user_object = get_user_by( "login", $username );
+                                $user_id = $user_object->ID;
 
-                            if( $update_existing_users == 'no' ){
-                                $errors[] = ACUIHelper()->new_error( $row, $errors_totals,  sprintf( __( 'User with username "%s" exists, we ignore it', 'import-users-from-csv-with-meta' ), $username ), 'notice' );
-                                array_push( $users_ignored, $user_id );
-                                continue;
+                                if( $update_existing_users == 'no' ){
+                                    $errors[] = ACUIHelper()->new_error( $row, $errors_totals,  sprintf( __( 'User with username "%s" exists, we ignore it', 'import-users-from-csv-with-meta' ), $username ), 'notice' );
+                                    array_push( $users_ignored, $user_id );
+                                    continue;
+                                }
+                                
+                                if( $password !== "" && $update_allow_update_passwords == 'yes' ){
+                                    wp_set_password( $password, $user_id );
+                                    $password_changed = true;
+                                }
+                                
+                                $new_user_id = ACUIHelper()->maybe_update_email( $user_id, $email, $password, $update_emails_existing_users, $original_email );
+                                if( empty( $new_user_id ) ){
+                                    $errors[] = ACUIHelper()->new_error( $row, $errors_totals,  sprintf( __( 'User with email "%s" exists with other username, we ignore it', 'import-users-from-csv-with-meta' ), $email ), 'notice' );     
+                                    array_push( $users_ignored, $new_user_id );
+                                    continue;
+                                }
+                                
+                                if( is_wp_error( $new_user_id ) ){
+                                    $data[0] = $new_user_id->get_error_message();
+                                    $errors[] = ACUIHelper()->new_error( $row, $errors_totals,  $data[0] );
+                                    $created = false;
+                                }
                             }
-                            
-                            if( $password !== "" && $update_allow_update_passwords == 'yes' ){
-                                wp_set_password( $password, $user_id );
-                                $password_changed = true;
-                            }
-                            
-                            $new_user_id = ACUIHelper()->maybe_update_email( $user_id, $email, $password, $update_emails_existing_users, $original_email );
-                            if( empty( $new_user_id ) ){
-                                $errors[] = ACUIHelper()->new_error( $row, $errors_totals,  sprintf( __( 'User with email "%s" exists with other username, we ignore it', 'import-users-from-csv-with-meta' ), $email ), 'notice' );     
-                                array_push( $users_ignored, $new_user_id );
-                                continue;
-                            }
-                            
-                            if( is_wp_error( $new_user_id ) ){
-                                $data[0] = $new_user_id->get_error_message();
-                                $errors[] = ACUIHelper()->new_error( $row, $errors_totals,  $data[0] );
-                                $created = false;
-                            }
-                            elseif( $new_user_id == $user_id)
-                                $created = false;
                             else{
-                                $user_id = $new_user_id;
-                                $new_user = get_user_by( 'id', $new_user_id );
-                                $data[0] = sprintf( __( 'Email has changed, new user created with username %s', 'import-users-from-csv-with-meta' ), $new_user->user_login );
-                                $errors[] = ACUIHelper()->new_error( $row, $errors_totals,  $data[0], 'warning' );     
+                                $username = $username.rand(1,100);
+                                $userdata = array(
+                                    'ID'          =>  $id,
+                                    'user_login'  =>  $username,
+                                    'user_email'  =>  $email,
+                                    'user_pass'   =>  $password
+                                );
+                                $user_id = wp_insert_user( $userdata );
+                                // echo "string".$user_id;
                                 $created = true;
                             }
                         }
@@ -653,11 +675,20 @@ class ACUI_Import{
                             }                            
                         }
     
-                        if( $columns > 2 ){
-                            for( $i = 2 ; $i < $columns; $i++ ):
+                        if( $columns > 1 ){
+                            for( $i = 1 ; $i < $columns; $i++ ):
                                 $data[$i] = apply_filters( 'pre_acui_import_single_user_single_data', $data[$i], $headers[$i], $i );
     
                                 if( !empty( $data ) ){
+                                    $blueprintRef_user = get_users('meta_key='.$headers[1].'&meta_value='.$data[1]);
+                                    if (isset($blueprintRef_user[0]))
+                                    {
+                                        $user_id = $blueprintRef_user[0]->ID;
+                                        $email = $blueprintRef_user[0]->user_email;
+                                        global $wpdb;
+                                        $wpdb->update( $wpdb->users, array( 'user_email' => $email ) , array( 'ID' => $user_id ) );
+                                        update_user_meta( $user_id, $headers[ $i ], $data[ $i ] );
+                                    }
                                     if( strtolower( $headers[ $i ] ) == "password" ){ // passwords -> continue
                                         continue;
                                     }
